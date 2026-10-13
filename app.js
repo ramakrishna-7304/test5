@@ -7,7 +7,7 @@ app.use(express.json());
 // In-memory "database"
 let movies = {};
 
-const VALID_GENRES = ["action", "comedy", "horror"];
+const VALID_GENRES = ["action", "comedy", "horror","drama"];
 
 function reset() {
   movies = {};
@@ -30,22 +30,20 @@ function createMovie(title, director, genre) {
 
 function filterMovies(watched) {
   const all = Object.values(movies);
-  if (watched === undefined) return all;
-  return all.filter((m) => m.watched !== watched);
+  //if (watched === undefined) return all;
+  return all.filter((m) => m.watched === watched);
 }
 
 // GET /movies?watched=true|false
 app.get("/movies", (req, res) => {
   const watchedParam = req.query.watched;
-  let result;
-  if (watchedParam !== undefined) {
-    if (watchedParam !== "true" && watchedParam !== "false") {
-      return res.status(400).json({ error: "watched must be 'true' or 'false'" });
-    }
-    result = filterMovies(watchedParam === "true");
-  } else {
-    result = filterMovies();
+
+  if (watchedParam !== undefined && watchedParam !== "true" && watchedParam !== "false") {
+    return res.status(400).json({ error: "watched must be 'true' or 'false'" });
   }
+
+  const watched = watchedParam === undefined ? undefined : watchedParam === "true";
+  const result = filterMovies(watched);
   res.status(200).json({ movies: result, count: result.length });
 });
 
@@ -65,7 +63,7 @@ app.post("/movies", (req, res) => {
     return res.status(400).json({ error: `genre must be one of ${VALID_GENRES.join(", ")}` });
   }
   const movie = createMovie(title, director, genre);
-  res.status(200).json(movie);
+  res.status(201).json(movie);
 });
 
 // GET /movies/stats  (must be declared before /movies/:id)
@@ -122,6 +120,33 @@ app.put("/movies/:id", (req, res) => {
     }
     movie.rating = data.rating;
   }
+  if ("watched" in data) {
+    if (typeof data.watched !== "boolean") {
+      return res.status(400).json({ error: "watched must be a boolean" });
+    }
+    movie.watched = data.watched;
+  }
+  res.status(200).json(movie);
+});
+
+// PATCH /movies/:id/watch
+app.patch("/movies/:id/watch", (req, res) => {
+  const movie = movies[req.params.id];
+  if (!movie) {
+    return res.status(404).json({ error: "Movie not found" });
+  }
+
+  movie.watched = true;
+  res.status(200).json(movie);
+});
+
+// PATCH /movies/:id
+app.patch("/movies/:id", (req, res) => {
+  const movie = movies[req.params.id];
+  if (!movie) {
+    return res.status(404).json({ error: "Movie not found" });
+  }
+  const data = req.body || {};
   if ("watched" in data) {
     if (typeof data.watched !== "boolean") {
       return res.status(400).json({ error: "watched must be a boolean" });
